@@ -1,6 +1,6 @@
 import asyncio
 import io
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from os import path
 
@@ -34,9 +34,8 @@ class ProcessedImage:
     extension: str
 
 
-def process_image(image: PILImage, config: ImageConfig) -> ProcessedImage:
-    """Process image"""
-    extension = config.content_type.split("/")[1]
+def transform_image(image: PILImage, config: ImageConfig) -> PILImage:
+    """Transform image"""
 
     if config.fit == "cover":
         image = ImageOps.fit(image, (config.width, config.height), method=0, bleed=0.0, centering=(0.5, 0.5))
@@ -52,10 +51,49 @@ def process_image(image: PILImage, config: ImageConfig) -> ProcessedImage:
         image = image.copy()
         image.thumbnail((config.width, config.height))
 
-    image_bytes = io.BytesIO()
+    return image
 
-    image.save(image_bytes, format=extension, quality=config.quality)
-    image_bytes = image_bytes.getvalue()
+
+def process_image(image: PILImage, config: ImageConfig) -> ProcessedImage:
+    """Process image"""
+
+    if config.content_type == "image/jpeg":
+        image = image.convert("RGB")
+
+    info = getattr(image, "info", {})
+    n_frames = (
+        getattr(image, "n_frames", 1)
+        if config.content_type in ["image/gif", "image/webp", "image/avif"]
+        else 1
+    )
+    frames: list[PILImage | Future[PILImage]] = []
+
+    for frame in range(n_frames):
+        image.seek(frame)
+        frames.append(thread_pool.submit(transform_image, image.copy(), config))
+
+    frames = [future.result() for future in frames]
+    extension = config.content_type.split("/")[1]
+
+    with io.BytesIO() as image_bytes:
+
+        frames[0].save(
+            image_bytes,
+            format=extension,
+            quality=config.quality,
+            append_images=frames[1:],
+            optimize=True,
+            **(
+                {
+                    "save_all": True,
+                    "duration": info.get("duration", 0),
+                    "loop": info.get("loop", 0),
+                }
+                if n_frames > 1
+                else {}
+            ),
+        )
+        image_bytes = image_bytes.getvalue()
 
     return ProcessedImage(
         tag=config.tag,
@@ -86,12 +124,12 @@ async def save_image(
     if len(configs) == 0:
         raise ValueError("No image configuration")
 
-    if isinstance(image, bytes):
-        image = io.BytesIO(image)
-
     loop = asyncio.get_event_loop()
 
     if not isinstance(image, PILImage):
+        if isinstance(image, bytes):
+            image = io.BytesIO(image)
+
         image = await loop.run_in_executor(thread_pool, PIL.Image.open, image)
         await loop.run_in_executor(thread_pool, image.load)
 

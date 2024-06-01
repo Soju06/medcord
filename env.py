@@ -25,5 +25,5 @@ DATABASE_TABLE_PREFIX: str = os.getenv("DATABASE_TABLE_PREFIX", "medcord_")
 PASSWORD: str = os.getenv("PASSWORD", "password")
 """Password"""
 
-IMAGE_PROCESSING_THREAD: int = int(os.getenv("IMAGE_PROCESSING_THREAD", "4"))
+IMAGE_PROCESSING_THREAD: int = int(os.getenv("IMAGE_PROCESSING_THREAD", "8"))
 """Image processing thread"""

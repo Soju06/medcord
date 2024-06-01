@@ -128,9 +128,12 @@ class ProcessedImage(BaseModel):
 class ProcessedImageGroup(BaseModel):
     """Processed image group"""
 
+    status: Literal["success", "error"] = Field("success", description="Status")
+    """Status"""
+
     id: str = Field(..., min_length=1, max_length=255, pattern="^[a-zA-Z0-9_\-]+$", description="Group ID")
     """Group ID"""
-    images: list[ProcessedImage] = Field(..., min_items=1, description="Processed images")
+    images: list[ProcessedImage] = Field(..., min_items=0, description="Processed images")
     """Processed images"""
 
 

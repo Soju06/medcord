@@ -1,13 +1,15 @@
 import asyncio
 import os
 from contextlib import asynccontextmanager
+from itertools import starmap
+from uuid import uuid4
 
 from fastapi import Depends, FastAPI, File, Form, Path, Request, Response, UploadFile
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette.responses import JSONResponse
 
 import env
-from core.image import get_content_type, real_path, save_image
+from core.image import ProcessedResult, get_content_type, real_path, save_image
 from db import create_all
 from models.dto.image import (
     ImageUploadRequest,
@@ -77,9 +79,9 @@ async def post_image(
         )
 
     groups = (
-        [(image, data.configs) for image in images]
+        list(zip(images, [[config] for config in data.configs]))
         if data.mode == "single"
-        else list(zip(images, [data.configs]))
+        else [(image, data.configs) for image in images]
     )
 
     processed = await asyncio.gather(
@@ -91,28 +93,30 @@ async def post_image(
                 content_type=image.content_type,
             )
             for image, configs in groups
-        ]
+        ],
+        return_exceptions=True,
     )
 
-    return ImageUploadResponse(
-        groups=[
-            ProcessedImageGroup(
-                id=group.id,
-                images=[
-                    ProcessedImage(
-                        tag=image.tag,
-                        size=image.size,
-                        width=image.width,
-                        height=image.height,
-                        quality=image.quality,
-                        content_type=image.content_type,
-                    )
-                    for image in group.images
-                ],
-            )
-            for group in processed
-        ]
-    )
+    def processed_image_group(group: BaseException | ProcessedResult):
+        if isinstance(group, BaseException):
+            return ProcessedImageGroup(status="error", id=uuid4().hex, images=[])
+
+        return ProcessedImageGroup(
+            id=group.id,
+            images=[
+                ProcessedImage(
+                    tag=image.tag,
+                    size=image.size,
+                    width=image.width,
+                    height=image.height,
+                    quality=image.quality,
+                    content_type=image.content_type,
+                )
+                for image in group.images
+            ],
+        )
+
+    return ImageUploadResponse(groups=[processed_image_group(group) for group in processed])
 
 
 @app.get("/images/{group_id}/{tag}")
