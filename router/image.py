@@ -12,10 +12,11 @@ from fastapi import (
     Response,
     UploadFile,
 )
+from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer
 
-from core.auth import upload_role
-from core.image import ImageProcessingResult, image_real_path, save_image
+from core.auth import delete_role, upload_role
+from core.image import ImageProcessingResult, image_real_path, remove_image, save_image
 from models.dto.image import (
     ImageUploadRequest,
     ImageUploadResponse,
@@ -131,3 +132,34 @@ async def get_image(
         range=request.headers.get("range"),
         media_type=content_type,
     )
+
+
+@router.delete(
+    "/{group_id}",
+    description="Delete image",
+    dependencies=[Depends(delete_role)],
+    responses={
+        204: {
+            "description": "Image deleted",
+            "content": {
+                "application/json": {
+                    "example": {"status": "ok"},
+                }
+            },
+        },
+        404: {
+            "description": "Image not found",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Image not found"},
+                }
+            },
+        },
+    },
+)
+async def delete_image(group_id: str = Path(..., regex="^[a-zA-Z0-9_\-]+$", description="Group ID")):
+    """Delete image"""
+    if not (await remove_image(group_id)):
+        return HTTPException(status_code=404, detail="Image not found")
+
+    return JSONResponse(content={"status": "ok"})

@@ -13,7 +13,9 @@ class Video(Base):
     id: int = Column(BigInteger, primary_key=True, autoincrement=True)
     """Video ID"""
     group_id: str = Column(
-        String(255), ForeignKey(env.DATABASE_TABLE_PREFIX + "video_groups.id"), nullable=False
+        String(255),
+        ForeignKey(env.DATABASE_TABLE_PREFIX + "video_groups.id", ondelete="CASCADE"),
+        nullable=False,
     )
     """Video group ID"""
     tag = Column(String(255), nullable=False)

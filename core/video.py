@@ -5,8 +5,9 @@ from dataclasses import dataclass
 from os import path
 from uuid import uuid4
 
+import aiofiles.os
 from moviepy.editor import VideoClip, VideoFileClip
-from moviepy.tools import find_extension
+from sqlalchemy import delete, select
 
 import env
 from db import scope
@@ -268,3 +269,23 @@ async def save_video(
 def video_real_path(group_id: str, tag: str) -> str:
     """Get real path"""
     return path.join(env.VIDEO_PATH, f"{group_id}_{tag}")
+
+
+async def remove_video(group_id: str):
+    """Remove video"""
+    async with scope() as session:
+        tags: list[str] = (
+            (await session.execute(select(Video.tag).where(Video.group_id == group_id))).scalars().all()
+        )
+
+        if not tags:
+            return False
+
+        await session.execute(delete(VideoGroup).where(VideoGroup.id == group_id))
+        await session.commit()
+
+    for tag in tags:
+        if await aiofiles.os.path.exists(video_real_path(group_id, tag)):
+            await aiofiles.os.remove(video_real_path(group_id, tag))
+
+    return True

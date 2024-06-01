@@ -12,3 +12,11 @@ def upload_role(token: HTTPAuthorizationCredentials = Depends(auth_scheme)):
             status_code=401,
             detail="Unauthorized",
         )
+
+
+def delete_role(token: HTTPAuthorizationCredentials = Depends(auth_scheme)):
+    if env.PASSWORD and token.credentials != env.PASSWORD:
+        raise HTTPException(
+            status_code=401,
+            detail="Unauthorized",
+        )

@@ -13,7 +13,9 @@ class Image(Base):
     id: int = Column(BigInteger, primary_key=True, autoincrement=True)
     """Image ID"""
     group_id: str = Column(
-        String(255), ForeignKey(env.DATABASE_TABLE_PREFIX + "image_groups.id"), nullable=False
+        String(255),
+        ForeignKey(env.DATABASE_TABLE_PREFIX + "image_groups.id", ondelete="CASCADE"),
+        nullable=False,
     )
     """Image group ID"""
     tag = Column(String(255), nullable=False)

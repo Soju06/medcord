@@ -15,11 +15,12 @@ from fastapi import (
     Response,
     UploadFile,
 )
+from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer
 
 import env
-from core.auth import upload_role
-from core.video import VideoProcessingResult, save_video, video_real_path
+from core.auth import delete_role, upload_role
+from core.video import VideoProcessingResult, remove_video, save_video, video_real_path
 from models.dto.video import (
     ProcessedVideo,
     ProcessedVideoGroup,
@@ -156,3 +157,34 @@ async def get_video(
         range=request.headers.get("range"),
         media_type=content_type,
     )
+
+
+@router.delete(
+    "/{group_id}/{tag}",
+    description="Delete video",
+    dependencies=[Depends(delete_role)],
+    responses={
+        204: {
+            "description": "Video deleted",
+            "content": {
+                "application/json": {
+                    "example": {"status": "ok"},
+                }
+            },
+        },
+        404: {
+            "description": "Video not found",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Video not found"},
+                }
+            },
+        },
+    },
+)
+async def delete_video(group_id: str = Path(..., regex="^[a-zA-Z0-9_\-]+$", description="Group ID")):
+    """Delete video"""
+    if not (await remove_video(group_id)):
+        return HTTPException(status_code=404, detail="Video not found")
+
+    return JSONResponse(content={"status": "ok"})

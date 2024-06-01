@@ -10,7 +10,7 @@ import PIL.Image
 import pillow_avif  # DO NOT REMOVE
 from PIL import ImageFile, ImageOps
 from PIL.Image import Image as PILImage
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 import env
 from db import scope
@@ -198,3 +198,23 @@ async def save_image(
 def image_real_path(group_id: str, tag: str) -> str:
     """Get real path"""
     return path.join(env.IMAGE_PATH, f"{group_id}_{tag}")
+
+
+async def remove_image(group_id: str) -> bool:
+    """Remove image"""
+    async with scope() as session:
+        tags: list[str] = (
+            (await session.execute(select(Image.tag).where(Image.group_id == group_id))).scalars().all()
+        )
+
+        if not tags:
+            return False
+
+        await session.execute(delete(ImageGroup).where(ImageGroup.id == group_id))
+        await session.commit()
+
+    for tag in tags:
+        if await aiofiles.os.path.exists(image_real_path(group_id, tag)):
+            await aiofiles.os.remove(image_real_path(group_id, tag))
+
+    return True
