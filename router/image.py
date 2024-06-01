@@ -117,8 +117,8 @@ async def post_image(
 )
 async def get_image(
     request: Request,
-    group_id: str = Path(..., description="Group ID"),
-    tag: str = Path(..., description="Tag"),
+    group_id: str = Path(..., regex="^[a-zA-Z0-9_\-]+$", description="Group ID"),
+    tag: str = Path(..., regex="^[a-zA-Z0-9_\-]+$", description="Tag"),
 ):
     """Get image"""
     path = image_real_path(group_id, tag)

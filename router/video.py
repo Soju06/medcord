@@ -142,8 +142,8 @@ async def post_video(
 )
 async def get_video(
     request: Request,
-    group_id: str = Path(..., description="Group ID"),
-    tag: str = Path(..., description="Tag"),
+    group_id: str = Path(..., regex="^[a-zA-Z0-9_\-]+$", description="Group ID"),
+    tag: str = Path(..., regex="^[a-zA-Z0-9_\-]+$", description="Tag"),
 ):
     """Get video"""
     path = video_real_path(group_id, tag)
