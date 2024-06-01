@@ -10,7 +10,7 @@ from db import Base
 class Image(Base):
     __tablename__ = env.DATABASE_TABLE_PREFIX + "images"
 
-    id: int = Column(BigInteger, nullable=False, primary_key=True, autoincrement=True)
+    id: int = Column(BigInteger, primary_key=True, autoincrement=True)
     """Image ID"""
     group_id: str = Column(
         String(255), ForeignKey(env.DATABASE_TABLE_PREFIX + "image_groups.id"), nullable=False
@@ -40,7 +40,6 @@ class Image(Base):
         content_type: str,
     ):
         super().__init__(
-            id=uuid4().hex,
             group_id=group_id,
             tag=tag,
             size=size,

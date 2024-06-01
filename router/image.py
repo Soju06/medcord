@@ -15,13 +15,14 @@ from fastapi import (
 from fastapi.security import HTTPBearer
 
 from core.auth import upload_role
-from core.image import ProcessedResult, get_content_type, real_path, save_image
+from core.image import ImageProcessingResult, image_real_path, save_image
 from models.dto.image import (
     ImageUploadRequest,
     ImageUploadResponse,
     ProcessedImage,
     ProcessedImageGroup,
 )
+from utils.content_type import get_content_type
 from utils.responses import file_response
 
 router = APIRouter()
@@ -84,7 +85,7 @@ async def post_image(
         return_exceptions=True,
     )
 
-    def processed_image_group(group: BaseException | ProcessedResult):
+    def processed_image_group(group: BaseException | ImageProcessingResult):
         if isinstance(group, BaseException):
             return ProcessedImageGroup(status="error", id=uuid4().hex, images=[])
 
@@ -120,11 +121,13 @@ async def get_image(
     tag: str = Path(..., description="Tag"),
 ):
     """Get image"""
-    if not (content_type := await get_content_type(group_id, tag)):
+    path = image_real_path(group_id, tag)
+
+    if not (content_type := await get_content_type(path)):
         return Response(status_code=404)
 
     return file_response(
-        real_path(group_id, tag),
+        path,
         range=request.headers.get("range"),
         media_type=content_type,
     )

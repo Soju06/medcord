@@ -13,6 +13,27 @@ class ImageConfig(BaseModel):
     """Image width"""
     height: int = Field(..., ge=1, description="Image Height")
     """Image height"""
+    fit: Literal[
+        "cover",
+        "contain",
+        "fill",
+        "inside",
+        "outside",
+    ] = Field(
+        "inside",
+        min_length=1,
+        max_length=255,
+        description="Image Fit\n- cover: Resize the image to fill the specified dimensions, cropping the image if necessary.\n- contain: Resize the image to fit within the specified dimensions, maintaining the original aspect ratio.\n- fill: Resize the image to the specified dimensions, cropping the image if necessary.\n- inside: Resize the image to be as large as possible while ensuring its dimensions are less than or equal to the specified dimensions.\n- outside: Resize the image to be as small as possible while ensuring its dimensions are greater than or equal to the specified dimensions.",
+    )
+    """
+    Fit
+    
+    - `cover`: Resize the image to fill the specified dimensions, cropping the image if necessary.
+    - `contain`: Resize the image to fit within the specified dimensions, maintaining the original aspect ratio.
+    - `fill`: Resize the image to the specified dimensions, cropping the image if necessary.
+    - `inside`: Resize the image to be as large as possible while ensuring its dimensions are less than or equal to the specified dimensions.
+    - `outside`: Resize the image to be as small as possible while ensuring its dimensions are greater than or equal to the specified dimensions.
+    """
     quality: int = Field(100, ge=0, le=100, description="Image Quality")
     """Quality (0-100)"""
     content_type: Literal[
@@ -35,27 +56,6 @@ class ImageConfig(BaseModel):
     - `image/webp` (WebP)
     - `image/avif` (AVIF)
     - `image/gif` (GIF)
-    """
-    fit: Literal[
-        "cover",
-        "contain",
-        "fill",
-        "inside",
-        "outside",
-    ] = Field(
-        "inside",
-        min_length=1,
-        max_length=255,
-        description="Image Fit\n- cover: Resize the image to fill the specified dimensions, cropping the image if necessary.\n- contain: Resize the image to fit within the specified dimensions, maintaining the original aspect ratio.\n- fill: Resize the image to the specified dimensions, cropping the image if necessary.\n- inside: Resize the image to be as large as possible while ensuring its dimensions are less than or equal to the specified dimensions.\n- outside: Resize the image to be as small as possible while ensuring its dimensions are greater than or equal to the specified dimensions.",
-    )
-    """
-    Fit
-    
-    - `cover`: Resize the image to fill the specified dimensions, cropping the image if necessary.
-    - `contain`: Resize the image to fit within the specified dimensions, maintaining the original aspect ratio.
-    - `fill`: Resize the image to the specified dimensions, cropping the image if necessary.
-    - `inside`: Resize the image to be as large as possible while ensuring its dimensions are less than or equal to the specified dimensions.
-    - `outside`: Resize the image to be as small as possible while ensuring its dimensions are greater than or equal to the specified dimensions.
     """
 
 

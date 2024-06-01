@@ -57,6 +57,7 @@ class RangedFileResponse(Response):
         stat_result: t.Optional[os.stat_result] = None,
         method: t.Optional[str] = None,
     ) -> None:
+        super().__init__(content=None)
         assert aiofiles is not None, "'aiofiles' must be installed to use FileResponse"
         self.path = path
         self.range = range

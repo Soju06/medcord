@@ -37,19 +37,31 @@ class ProcessedImage:
 def transform_image(image: PILImage, config: ImageConfig) -> PILImage:
     """Transform image"""
 
-    if config.fit == "cover":
-        image = ImageOps.fit(image, (config.width, config.height), method=0, bleed=0.0, centering=(0.5, 0.5))
-    elif config.fit == "contain":
-        image = image.copy()
-        image.thumbnail((config.width, config.height))
-    elif config.fit == "fill":
-        image = ImageOps.fit(image, (config.width, config.height), method=0, bleed=0.0, centering=(0.5, 0.5))
-    elif config.fit == "inside":
-        image = image.copy()
-        image.thumbnail((config.width, config.height))
-    elif config.fit == "outside":
-        image = image.copy()
-        image.thumbnail((config.width, config.height))
+    match config.fit:
+        case "cover":
+            image = ImageOps.fit(
+                image, (config.width, config.height), method=0, bleed=0.0, centering=(0.5, 0.5)
+            )
+
+        case "contain":
+            image = image.copy()
+            image.thumbnail((config.width, config.height))
+
+        case "fill":
+            image = ImageOps.fit(
+                image, (config.width, config.height), method=0, bleed=0.0, centering=(0.5, 0.5)
+            )
+
+        case "inside":
+            image = image.copy()
+            image.thumbnail((config.width, config.height))
+
+        case "outside":
+            image = image.copy()
+            image.thumbnail((config.width, config.height))
+
+        case _:
+            pass
 
     return image
 
@@ -76,7 +88,6 @@ def process_image(image: PILImage, config: ImageConfig) -> ProcessedImage:
     extension = config.content_type.split("/")[1]
 
     with io.BytesIO() as image_bytes:
-
         frames[0].save(
             image_bytes,
             format=extension,
@@ -99,8 +110,8 @@ def process_image(image: PILImage, config: ImageConfig) -> ProcessedImage:
         tag=config.tag,
         image=image_bytes,
         size=len(image_bytes),
-        width=image.width,
-        height=image.height,
+        width=frames[0].width,
+        height=frames[0].height,
         quality=config.quality,
         content_type=config.content_type,
         extension=extension,
@@ -108,7 +119,7 @@ def process_image(image: PILImage, config: ImageConfig) -> ProcessedImage:
 
 
 @dataclass
-class ProcessedResult:
+class ImageProcessingResult:
     id: str
     images: list[ProcessedImage]
 
@@ -118,7 +129,7 @@ async def save_image(
     configs: list[ImageConfig],
     filename: str = "image.jpg",
     content_type: str = "image/jpeg",
-) -> ProcessedResult:
+) -> ImageProcessingResult:
     """Save image"""
 
     if len(configs) == 0:
@@ -158,47 +169,32 @@ async def save_image(
                 processed: ProcessedImage = future.result()
 
                 async with aiofiles.open(
-                    path.join(env.IMAGE_PATH, f"{group_id}_{processed.tag}"),
+                    image_real_path(group_id, processed.tag),
                     "wb",
                 ) as f:
                     await f.write(processed.image)
 
-                image = Image(
-                    group_id=group_id,
-                    tag=processed.tag,
-                    size=processed.size,
-                    width=processed.width,
-                    height=processed.height,
-                    quality=processed.quality,
-                    content_type=processed.content_type,
+                session.add(
+                    Image(
+                        group_id=group_id,
+                        tag=processed.tag,
+                        size=processed.size,
+                        width=processed.width,
+                        height=processed.height,
+                        quality=processed.quality,
+                        content_type=processed.content_type,
+                    )
                 )
-
-                session.add(image)
                 images.append(processed)
 
         await session.commit()
 
-        return ProcessedResult(
+        return ImageProcessingResult(
             id=group_id,
             images=images,
         )
 
 
-def real_path(group_id: str, tag: str) -> str:
+def image_real_path(group_id: str, tag: str) -> str:
     """Get real path"""
     return path.join(env.IMAGE_PATH, f"{group_id}_{tag}")
-
-
-async def image_exists(group_id: str, tag: str) -> bool:
-    """Check if image exists"""
-    return await aiofiles.os.path.exists(real_path(group_id, tag))
-
-
-async def get_content_type(group_id: str, tag: str) -> str | None:
-    """Get extension"""
-    async with scope() as session:
-        return (
-            await session.execute(
-                select(Image.content_type).filter(Image.group_id == group_id, Image.tag == tag)
-            )
-        ).scalar_one_or_none()
