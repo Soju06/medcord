@@ -32,13 +32,14 @@ async def create_all():
     url = make_url(env.DATABASE_URL)
     dialect = url.get_dialect().name
     database = url.database
-    new_engine = create_async_engine(
-        url.set(database="").render_as_string(False),
-        echo=env.DEBUG,
-    )
 
-    async with new_engine.begin() as conn:
-        if dialect != "sqlite":
+    if dialect != "sqlite":
+        new_engine = create_async_engine(
+            url.set(database="").render_as_string(False),
+            echo=env.DEBUG,
+        )
+
+        async with new_engine.begin() as conn:
             await conn.execute(
                 text(
                     "SELECT 'CREATE DATABASE {0}' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '{0}')\gexec".format(
@@ -49,7 +50,7 @@ async def create_all():
                 )
             )
 
-    new_engine.dispose()
+        await new_engine.dispose()
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

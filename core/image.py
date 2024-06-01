@@ -10,6 +10,7 @@ import PIL.Image
 import pillow_avif  # DO NOT REMOVE
 from PIL import ImageFile, ImageOps
 from PIL.Image import Image as PILImage
+from sqlalchemy import select
 
 import env
 from db import scope
@@ -40,12 +41,15 @@ def process_image(image: PILImage, config: ImageConfig) -> ProcessedImage:
     if config.fit == "cover":
         image = ImageOps.fit(image, (config.width, config.height), method=0, bleed=0.0, centering=(0.5, 0.5))
     elif config.fit == "contain":
+        image = image.copy()
         image.thumbnail((config.width, config.height))
     elif config.fit == "fill":
         image = ImageOps.fit(image, (config.width, config.height), method=0, bleed=0.0, centering=(0.5, 0.5))
     elif config.fit == "inside":
+        image = image.copy()
         image.thumbnail((config.width, config.height))
     elif config.fit == "outside":
+        image = image.copy()
         image.thumbnail((config.width, config.height))
 
     image_bytes = io.BytesIO()
@@ -65,17 +69,6 @@ def process_image(image: PILImage, config: ImageConfig) -> ProcessedImage:
     )
 
 
-async def load_image(image: bytes | io.BytesIO) -> PILImage:
-    """Load image"""
-
-    if isinstance(image, bytes):
-        image = io.BytesIO(image)
-
-    image = await asyncio.get_event_loop().run_in_executor(thread_pool, PIL.Image.open, image)
-
-    return image
-
-
 @dataclass
 class ProcessedResult:
     id: str
@@ -93,10 +86,15 @@ async def save_image(
     if len(configs) == 0:
         raise ValueError("No image configuration")
 
-    if not isinstance(image, PILImage):
-        image = await load_image(image)
+    if isinstance(image, bytes):
+        image = io.BytesIO(image)
 
     loop = asyncio.get_event_loop()
+
+    if not isinstance(image, PILImage):
+        image = await loop.run_in_executor(thread_pool, PIL.Image.open, image)
+        await loop.run_in_executor(thread_pool, image.load)
+
     features = [loop.run_in_executor(thread_pool, process_image, image, config) for config in configs]
 
     async with scope() as session:
@@ -146,3 +144,23 @@ async def save_image(
             id=group_id,
             images=images,
         )
+
+
+def real_path(group_id: str, tag: str) -> str:
+    """Get real path"""
+    return path.join(env.IMAGE_PATH, f"{group_id}_{tag}")
+
+
+async def image_exists(group_id: str, tag: str) -> bool:
+    """Check if image exists"""
+    return await aiofiles.os.path.exists(real_path(group_id, tag))
+
+
+async def get_content_type(group_id: str, tag: str) -> str | None:
+    """Get extension"""
+    async with scope() as session:
+        return (
+            await session.execute(
+                select(Image.content_type).filter(Image.group_id == group_id, Image.tag == tag)
+            )
+        ).scalar_one_or_none()
